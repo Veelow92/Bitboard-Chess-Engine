@@ -71,7 +71,7 @@ void print_bitboard(U64 bitboard) {
             }
             
 
-            // print bit sate (either 1 or 0)
+            // print bit state (either 1 or 0)
             printf(" %d", get_bit(bitboard, square) ? 1 : 0);
         }
       
@@ -170,6 +170,15 @@ const U64 not_h_file = 9187201950435737471ULL;
 // pawn attacks table [side][square]
 U64 pawn_attacks[2][64];
 
+// knight attacks table [square]
+U64 knight_attacks[64];
+
+// king attacks table;
+U64 king_attacks[64];
+
+// bishop attacks
+U64 bishop_attacks[64];
+
 //generate pawn attacks
 U64 mask_pawn_attacks(int side, int square) {
 
@@ -185,6 +194,7 @@ U64 mask_pawn_attacks(int side, int square) {
     // white pawns moves
     if (!side)
     {
+        // generate pawn attacks
         if ((bitboard >> 7) & not_a_file) attacks |= (bitboard >> 7);
         if ((bitboard >> 9) & not_h_file) attacks |= (bitboard >> 9);
         
@@ -192,6 +202,7 @@ U64 mask_pawn_attacks(int side, int square) {
     // black pawns moves
     else
     {
+        // generate pawn attacks
         if ((bitboard << 7) & not_h_file) attacks |= (bitboard << 7);
         if ((bitboard << 9) & not_a_file) attacks |= (bitboard << 9);
     }
@@ -202,6 +213,103 @@ U64 mask_pawn_attacks(int side, int square) {
     
 }
 
+// generate knight attacks
+U64 mask_knight_attacks(int square) {
+
+    // result attacks bitboard
+    U64 attacks = 0ULL;
+
+    // piece bitboard
+    U64 bitboard = 0ULL;
+
+    // set piece on board
+    set_bit(bitboard, square);
+
+    // knight moves (offsets 17, 15, 10, 6)
+    if ((bitboard >> 17) & not_h_file) attacks |= (bitboard >> 17);
+    if ((bitboard >> 15) & not_a_file) attacks |= (bitboard >> 15);
+    if ((bitboard >> 10) & not_gh_file) attacks |= (bitboard >> 10);
+    if ((bitboard >> 6) & not_ab_file) attacks |= (bitboard >> 6);
+    if ((bitboard << 17) & not_a_file) attacks |= (bitboard << 17);
+    if ((bitboard << 15) & not_h_file) attacks |= (bitboard << 15);
+    if ((bitboard << 10) & not_ab_file) attacks |= (bitboard << 10);
+    if ((bitboard << 6) & not_gh_file) attacks |= (bitboard << 6);
+
+    // return attacks map
+    return attacks;
+
+}
+
+// generate king attacks
+U64 mask_king_attacks(int square) {
+
+    // result attacks bitboard
+    U64 attacks = 0ULL;
+
+    // piece bitboard
+    U64 bitboard = 0ULL;
+
+    // set piece on board
+    set_bit(bitboard, square);
+
+    // generate king attacks (1, 7, 8, 9 )
+    // up
+    if ((bitboard >> 1) & not_h_file) attacks |= (bitboard >> 1);
+    if ((bitboard >> 7) & not_a_file) attacks |= (bitboard >> 7);
+    if ((bitboard >> 8)) attacks |= (bitboard >> 8);
+    if ((bitboard >> 9) & not_h_file) attacks |= (bitboard >> 9);
+    // down
+    if ((bitboard << 1) & not_a_file) attacks |= (bitboard << 1);
+    if ((bitboard << 7) & not_h_file) attacks |= (bitboard << 7);
+    if ((bitboard << 8)) attacks |= (bitboard << 8);
+    if ((bitboard << 9) & not_a_file) attacks |= (bitboard << 9);
+
+    // return attacks map
+    return attacks;
+    
+}
+
+// generate bishop attacks
+U64 mask_bishop_attacks(int square) {
+
+    // result attacks bitboard
+    U64 attacks = 0ULL;
+
+    // piece bitboard *1ULL for iteration see notes below
+    U64 bitboard = 1ULL;
+
+    // set piece on board *dont need this
+    //set_bit(bitboard, square);
+
+    // init ranks & files
+    int r, f;
+
+    // init target rank & files
+    int tr = square / 8;
+    //printf(" %d for tr debug\n", tr);
+    int tf = square % 8;
+    //printf(" %d for tf debug\n", tf);
+
+    // mask relevant bishop occupancy bits
+    for (r = tr +1, f = tf +1; r <=6 && f <=6 ; r++, f++) attacks |= (bitboard << (r * 8 + f)); // bottom right
+    for (r = tr +1, f = tf -1; r <=6 && f >=1 ; r++, f--) attacks |= (bitboard << (r * 8 + f)); // bottom left
+    for (r = tr -1, f = tf +1; r >=1 && f <=6 ; r--, f++) attacks |= (bitboard << (r * 8 + f)); // top right
+    for (r = tr -1, f = tf -1; r >=1 && f >=1 ; r--, f--) attacks |= (bitboard << (r * 8 + f)); // top left
+
+    /* So what my understanding of the difference between king, pawn, knight and bishop, rook possibly queen aswell are the amount of possible moves it can do.
+    hence why the bit iteration are different here.
+    Put it this way, for king, pawns, knight. you've set where the pieces are on the board with set_bit and make the moves because their movement is fixed and
+    wont exceed the 64 bits of the board while only possible to make 1 fixed set of moves out of max of 8 for king, knight and 2 for pawns.
+    Meanwhile bishop, rooks, and queen can move across the board if there are no pieces interupting hence you do a iteration with the given square and
+    calculate each possible moves for each column and rows from that square hence the 1ULL is TO SET where the possible moves ARE!! IDIOT. I hope this makes sense for my future self. */
+
+    // return attacks map
+    return attacks;
+
+}
+
+
+
 // init leaper pieces attacks
 void init_leapers_attacks() {
 
@@ -211,6 +319,16 @@ void init_leapers_attacks() {
         // init pawn attacks
         pawn_attacks[white][square] = mask_pawn_attacks(white, square);
         pawn_attacks[black][square] = mask_pawn_attacks(black, square);
+
+        // init knight attacks
+        knight_attacks[square] = mask_knight_attacks(square);
+
+        // init king attacks
+        king_attacks[square] = mask_king_attacks(square);
+
+        // init bishop attacks
+        bishop_attacks[square] = mask_bishop_attacks(square);
+
     }
     
 }
@@ -244,7 +362,16 @@ int main() {
 
     // U64 bitboard = 0ULL;
     // set_bit(bitboard, h2);
-    print_bitboard(mask_pawn_attacks(black, e4));
+    print_bitboard(mask_bishop_attacks(e4));
+
+    // for (int i = 0; i < 64; i++)
+    // {
+    //     int a = i / 8;
+    //     int b = i % 8;
+    //     printf(" a = %d \n\n", a + 1);
+    //     printf(" b = %d \n\n", b + 1);
+    // }
+    
 
     
     //for constant file/row abhg overboard control.
