@@ -267,6 +267,18 @@ U64 knight_attacks[64];
 // king attacks table;
 U64 king_attacks[64];
 
+// bishop attack masks
+U64 bishop_masks[64];
+
+// rook attack masks
+U64 rook_masks[64];
+
+// bishop attacks table [square][occupancies]
+U64 bishop_attacks[64][512];
+
+// rook attacks table [square][occupancies]
+U64 rook_attacks[64][4096];
+
 // bishop relevant occupancy bit count for every square on board
 const int bishop_relevant_bits[64] = {
     6, 5, 5, 5, 5, 5, 5, 6, 
@@ -910,6 +922,83 @@ void init_magic_numbers() {
     
 }
 
+// init slider piece's attack tables
+void init_sliders_attacks(int bishop) {
+
+    // loop over 64 board square
+    for (int square = 0; square < 64; square++)
+    {
+        // init bishop & rook mask
+        bishop_masks[square] = mask_bishop_attacks(square);
+        rook_masks[square] = mask_rook_attacks(square);
+
+        // init current mask
+        U64 attacks_mask = bishop ? bishop_masks[square] : rook_masks[square];
+
+        // init relevant occupancy bit count
+        int relevant_bits_count = count_bits(attacks_mask);
+        
+        // init occupancy indicies
+        int occupancy_indicies = (1 << relevant_bits_count);
+
+        // loop over occupancy indicies
+        for (int index = 0; index < occupancy_indicies; index++)
+        {
+            // bishop
+            if (bishop)
+            {
+                // init current occupancy variation
+                U64 occupancy = set_occupancy(index, relevant_bits_count, attacks_mask);
+
+                // init magic index
+                int magic_index = (occupancy * bishop_magic_numbers[square]) >> (64 - bishop_relevant_bits[square]);
+
+                // init bishop attacks
+                bishop_attacks[square][magic_index] = bishop_attacks_on_the_fly(square, occupancy);
+            } 
+            // rook
+            else
+            {
+                // init current occupancy variation
+                U64 occupancy = set_occupancy(index, relevant_bits_count, attacks_mask);
+
+                // init magic index
+                int magic_index = (occupancy * rook_magic_numbers[square]) >> (64 - rook_relevant_bits[square]);
+
+                // init rook attacks
+                rook_attacks[square][magic_index] = rook_attacks_on_the_fly(square, occupancy);
+            }
+            
+            
+        }
+        
+    }
+    
+}
+
+// get bishop attacks
+static inline U64 get_bishop_attacks(int square, U64 occupancy) {
+
+    // get bishop attacks assuming current board occupancy
+    occupancy &= bishop_masks[square];
+    occupancy *= bishop_magic_numbers[square];
+    occupancy >>= 64 - bishop_relevant_bits[square];
+
+    // return bishop attacks
+    return bishop_attacks[square][occupancy];
+}
+
+// get rook attacks
+static inline U64 get_rook_attacks(int square, U64 occupancy) {
+
+    // get rook attacks assuming current board occupancy
+    occupancy &= rook_masks[square];
+    occupancy *= rook_magic_numbers[square];
+    occupancy >>= 64 - rook_relevant_bits[square];
+
+    // return rook attacks
+    return rook_attacks[square][occupancy];
+}
 
 /*************************************************\
 ===================================================
@@ -928,6 +1017,10 @@ void init_all() {
     // Init leaper pieces attacks
     init_leapers_attacks();
 
+    // Init slider piece's attacks
+    init_sliders_attacks(bishop);
+    init_sliders_attacks(rook);
+
     // init magic numbers
     // init_magic_numbers();
 }
@@ -942,6 +1035,22 @@ int main() {
 
     // Init all
     init_all();
+
+    // // define test bitboard
+    // U64 occupancy = 0ULL;
+    // set_bit(occupancy, c5);
+    // set_bit(occupancy, f2);
+    // set_bit(occupancy, g7);
+    // set_bit(occupancy, b2);
+    // set_bit(occupancy, g5);
+    // set_bit(occupancy, e2);
+    // set_bit(occupancy, e7);
+    // set_bit(occupancy, e4);
+
+    // print_bitboard(occupancy);
+
+  
+    // print_bitboard(get_rook_attacks(e5, occupancy));
 
     
     
