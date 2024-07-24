@@ -567,7 +567,7 @@ void parse_fen(char *fen) {
     occupancies[both] |= occupancies[black];
 
     // debug FEN
-    printf("fen: %s\n", fen);
+    //printf("fen: %s\n", fen);
     
 }
 
@@ -1400,18 +1400,18 @@ static inline U64 get_queen_attacks(int square, U64 occupancy) {
     U64 queen_attacks = 0ULL;
 
     // init bishop occupancies
-    U64 bishop_occunpancy = occupancy;
+    U64 bishop_occupancy = occupancy;
 
     // init rook occupancies
     U64 rook_occupancy = occupancy;
 
     // get bishop attacks assuming current board occupancy
-    bishop_occunpancy &= bishop_masks[square];
-    bishop_occunpancy *= bishop_magic_numbers[square];
-    bishop_occunpancy >>= 64 - bishop_relevant_bits[square];
+    bishop_occupancy &= bishop_masks[square];
+    bishop_occupancy *= bishop_magic_numbers[square];
+    bishop_occupancy >>= 64 - bishop_relevant_bits[square];
 
     // get bishop attacks
-    queen_attacks = bishop_attacks[square][bishop_occunpancy];
+    queen_attacks = bishop_attacks[square][bishop_occupancy];
 
     // get rook attacks assuming current board occupancy
     rook_occupancy &= rook_masks[square];
@@ -1427,9 +1427,91 @@ static inline U64 get_queen_attacks(int square, U64 occupancy) {
 
 /*************************************************\
 ===================================================
-                Defense Moves
+                Move Generator
 ===================================================
 \*************************************************/
+
+// is current given square attacked by the current given sides
+static inline int is_square_attacked(int square, int side) {
+
+    // attacked by white pawn
+    if ((side == white) && (pawn_attacks[black][square] & bitboard[P]))
+    {
+        return 1;
+    }
+
+    // attacked by black pawn
+    if ((side == black) && (pawn_attacks[white][square] & bitboard[p]))
+    {
+        return 1;
+    }
+
+    // attacked by knights
+    if (knight_attacks[square] & ((side == white) ? bitboard[N] : bitboard[n]))
+    {
+        return 1;
+    }
+
+    // attacked by bishops
+    if (get_bishop_attacks(square, occupancies[both]) & ((side == white) ? bitboard[B] : bitboard[b]))
+    {
+        return 1;
+    }
+    
+    // attacked by rooks
+    if (get_rook_attacks(square, occupancies[both]) & ((side == white) ? bitboard[R] : bitboard[r]))
+    {
+        return 1;
+    }
+
+    // attacked by queens
+    if (get_queen_attacks(square, occupancies[both]) & ((side == white) ? bitboard[Q] : bitboard[q]))
+    {
+        return 1;
+    }
+
+    // attacked by kings
+    if (king_attacks[square] & ((side == white) ? bitboard[K] : bitboard[k]))
+    {
+        return 1;
+    }
+    
+    // by default return false
+    return 0;
+}
+
+// print attacked squares
+void print_attacked_squares(int side) {
+
+    printf("\n");
+    // loop over board ranks
+    for (int rank = 0; rank < 8; rank++)
+    {
+        // loop over files
+        for (int file = 0; file < 8; file++)
+        {
+            // init squares
+            int square = rank * 8 + file;
+
+            // print ranks
+            if (!file)
+            {
+                printf("  %d  ", 8 - rank);
+            }
+            
+            // check wheter current square is attacked or not
+            printf(" %d", is_square_attacked(square, side) ? 1 : 0);
+        }
+
+        // print newline every rank
+        printf("\n");
+        
+    }
+
+    // print files
+    printf("\n      a b c d e f g h\n\n");
+    
+}
 
 /*************************************************\
 ===================================================
