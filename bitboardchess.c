@@ -8,6 +8,11 @@
 
 #include <stdio.h>
 #include <string.h>
+#ifdef WIN64
+    #include <windows.h>
+#else
+    #include <sys/time.h>
+#endif
 
 // define bitboard data type
 #define U64 unsigned long long
@@ -1819,6 +1824,49 @@ static inline int make_move(int move, int move_flag) {
             }
         }
         
+        // update castling rights
+        castle &= castling_rights[source_square];
+        castle &= castling_rights[target_square];
+
+        // reset occupancies
+        memset(occupancies, 0ULL, 24);
+
+        // loop over white pieces bitboards
+        for (int bb_piece = P; bb_piece <= K; bb_piece++)
+        {
+            // update white occupancies
+            occupancies[white] |= bitboards[bb_piece];
+        }
+        
+        // loop over black pieces bitboards
+        for (int bb_piece = p; bb_piece <= k; bb_piece++)
+        {
+            // update white occupancies
+            occupancies[black] |= bitboards[bb_piece];
+        }
+        
+        // update both sides occupancies
+        occupancies[both] |= occupancies[white];
+        occupancies[both] |= occupancies[black];
+
+        // change side
+        side ^= 1;
+        
+        // makesure that king has not been exposed into a check
+        if (is_square_attacked((side == white) ? get_ls1b_index(bitboards[k]) : get_ls1b_index(bitboards[K]) , side))
+        {
+            // move is illegal since the king will be in check and take it back
+            take_back();
+
+            // return illegal move
+            return 0;
+        }
+        
+        else
+        {
+            // return legal moves
+            return 1;
+        }
         
     }
     
@@ -2346,6 +2394,19 @@ void init_all() {
 ===================================================
 \*************************************************/
 
+// get time in miliseconds
+int get_time_ms() {
+
+    #ifdef WIN64
+        return GetTickCount();
+    #else
+        struct timeval time_value;
+        gettimeofday(&time_value, NULL);
+        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
+    #endif
+}
+
+
 int main() {
 
 
@@ -2358,6 +2419,9 @@ int main() {
     moves move_list[1];
 
     generate_moves(move_list);
+
+    // start tracking time
+    int start = get_time_ms();
 
     // loop over generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
@@ -2379,12 +2443,9 @@ int main() {
         getchar();
     }
     
-
-
-   
-   
-
-    
+    // time taken to execute program
+    printf("Time taken to execute: %d ms\n", get_time_ms() - start);
+    getchar();
 
     return 0;
 
