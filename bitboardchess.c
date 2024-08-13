@@ -287,8 +287,8 @@ U64 generate_magic_number () {
 \*************************************************/
 
 // set/get/pop macros  *****need to add brackets on bitboard and square and update pop bit double check
-#define set_bit(bitboard, square) (bitboard |= (1ULL << square))
-#define get_bit(bitboard, square) (bitboard & (1ULL << square))
+#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
+#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
 #define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
 // #define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
 
@@ -536,13 +536,11 @@ void parse_fen(char *fen) {
     {
         switch (*fen)
         {
-
         case 'K': castle |= wk; break;
         case 'Q': castle |= wq; break;
         case 'k': castle |= bk; break;
         case 'q': castle |= bq; break;
         case '-': break;
-
         }
 
         // increment pointer to FEN string
@@ -852,8 +850,6 @@ U64 bishop_magic_numbers[64] = {
     0x4010011029020020ULL
 };
 
-// queen attacks
-U64 queen_attacks[64];
 
 //generate pawn attacks
 U64 mask_pawn_attacks(int side, int square) {
@@ -1017,42 +1013,6 @@ U64 mask_rook_attacks(int square) {
 }
 
 
-// mask queen attacks
-U64 mask_queen_attacks(int square) {
-
-    // result attacks bitboard
-    U64 attacks = 0ULL;
-
-    // piece bitboard *1ULL for iteration
-    U64 bitboard = 1ULL;
-
-    // set piece on board *dont need this
-    //set_bit(bitboard, square);
-
-    // init ranks & files
-    int r, f;
-
-    // init target rank & files
-    int tr = square / 8;
-    //printf(" %d for tr debug\n", tr);
-    int tf = square % 8;
-    //printf(" %d for tf debug\n", tf);
-
-    // mask relevant queen occupancy bits
-    for (r = tr +1; r <=6; r++) attacks |= (bitboard << (r * 8 + tf)); // bottom
-    for (r = tr -1; r >=1; r--) attacks |= (bitboard << (r * 8 + tf)); // up
-    for (f = tf -1; f >=1 ; f--) attacks |= (bitboard << (tr * 8 + f)); // right
-    for (f = tf +1; f <=6 ; f++) attacks |= (bitboard << (tr * 8 + f)); // left
-    for (r = tr +1, f = tf +1; r <=6 && f <=6 ; r++, f++) attacks |= (bitboard << (r * 8 + f)); // bottom right
-    for (r = tr +1, f = tf -1; r <=6 && f >=1 ; r++, f--) attacks |= (bitboard << (r * 8 + f)); // bottom left
-    for (r = tr -1, f = tf +1; r >=1 && f <=6 ; r--, f++) attacks |= (bitboard << (r * 8 + f)); // top right
-    for (r = tr -1, f = tf -1; r >=1 && f >=1 ; r--, f--) attacks |= (bitboard << (r * 8 + f)); // top left
-
-    // return attacks map
-    return attacks;
-
-}
-
 /* ************************************************* */
 /* Generate block occupancy for bishop, rook, queen */
 /* ************************************************* */
@@ -1197,9 +1157,6 @@ void init_leapers_attacks() {
         // // init rook attacks
         // rook_attacks[square] = mask_rook_attacks(square);
 
-        // // init queen attacks
-        // queen_attacks[square] = mask_queen_attacks(square);
-
     }
     
 }
@@ -1292,7 +1249,8 @@ U64 find_magic_number(int square, int relevant_bits, int bishop) {
             {
                 // init used attacks
                 used_attacks[magic_index] = attacks[index];
-            } else if (used_attacks[magic_index] != attacks[index])
+            }
+            else if (used_attacks[magic_index] != attacks[index])
             {
                 fail = 1;
             }
@@ -1345,7 +1303,7 @@ void init_sliders_attacks(int bishop) {
         bishop_masks[square] = mask_bishop_attacks(square);
         rook_masks[square] = mask_rook_attacks(square);
 
-        // init current mask
+        // init current attack mask
         U64 attacks_mask = bishop ? bishop_masks[square] : rook_masks[square];
 
         // init relevant occupancy bit count
@@ -1766,7 +1724,7 @@ static inline int make_move(int move, int move_flag) {
         if (promoted_piece)
         {
             // erase the pawn from the target square
-            pop_bit(bitboards[(side == white) ? P : P], target_square);
+            pop_bit(bitboards[(side == white) ? P : p], target_square);
 
             // set up promoted piece on chess board on target square
             set_bit(bitboards[promoted_piece], target_square);
@@ -1776,7 +1734,7 @@ static inline int make_move(int move, int move_flag) {
         if (enpass)
         {
             // erase the pawn depending on side to move
-            (side == white) ? pop_bit(bitboards[p], target_square + 8) : pop_bit(bitboards[P], target_square -8);
+            (side == white) ? pop_bit(bitboards[p], target_square + 8) : pop_bit(bitboards[P], target_square - 8);
         }
         
         // reset enpassant square
@@ -1809,14 +1767,14 @@ static inline int make_move(int move, int move_flag) {
 
                   // black castles king side
             case (g8):
-                pop_bit(bitboards[R], h8);
-                set_bit(bitboards[R], f8);
+                pop_bit(bitboards[r], h8);
+                set_bit(bitboards[r], f8);
                 break;
 
                   // black castles queen side
             case (c8):
-                pop_bit(bitboards[R], a8);
-                set_bit(bitboards[R], d8);
+                pop_bit(bitboards[r], a8);
+                set_bit(bitboards[r], d8);
                 break;
             
             default:
@@ -2026,7 +1984,7 @@ static inline void generate_moves(moves *move_list) {
                 if (castle & wq)
                 {
                     // make sure square between queen and queen's rook are empty
-                    if (!get_bit(occupancies[both], b1) && !get_bit(occupancies[both], c1) && !get_bit(occupancies[both], d1))
+                    if (!get_bit(occupancies[both], d1) && !get_bit(occupancies[both], c1) && !get_bit(occupancies[both], b1))
                     {
                         // make sure queen and the d1 squares are not under attacks
                         if (!is_square_attacked(e1, black) && !is_square_attacked(d1, black))
@@ -2148,7 +2106,7 @@ static inline void generate_moves(moves *move_list) {
                 if (castle & bq)
                 {
                     // make sure square between queen and queen's rook are empty
-                    if (!get_bit(occupancies[both], b8) && !get_bit(occupancies[both], c8) && !get_bit(occupancies[both], d8))
+                    if (!get_bit(occupancies[both], d8) && !get_bit(occupancies[both], c8) && !get_bit(occupancies[both], b8))
                     {
                         // make sure queen and the d8 squares are not under attacks
                         if (!is_square_attacked(e8, white) && !is_square_attacked(d8, white))
@@ -2370,6 +2328,113 @@ static inline void generate_moves(moves *move_list) {
 
 /*************************************************\
 ===================================================
+                Perft Test
+===================================================
+\*************************************************/
+
+// get time in milliseconds
+int get_time_ms()
+{
+    #ifdef WIN64
+        return GetTickCount();
+    #else
+        struct timeval time_value;
+        gettimeofday(&time_value, NULL);
+        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
+    #endif
+}
+
+// leaf nodes (number of positions reached during testing  of the move generator at a given depth)
+long nodes;
+
+// perft driver
+static inline void perft_driver(int depth)
+{
+    // reccursion escape condition
+    if (depth == 0)
+    {
+        // increment nodes count (count reached positions)
+        nodes++;
+        return;
+    }
+    
+    // create move list instance
+    moves move_list[1];
+    
+    // generate moves
+    generate_moves(move_list);
+    
+        // loop over generated moves
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {   
+        // preserve board state
+        copy_board();
+        
+        // make move
+        if (!make_move(move_list->moves[move_count], all_moves))
+            // skip to the next move
+            continue;
+        
+        // call perft driver recursively
+        perft_driver(depth - 1);
+        
+        // take back
+        take_back();
+    }
+}
+
+// perft test
+void perft_test(int depth)
+{
+    printf("\n     Performance test\n\n");
+    
+    // create move list instance
+    moves move_list[1];
+    
+    // generate moves
+    generate_moves(move_list);
+    
+    // init start time
+    long start = get_time_ms();
+    
+    // loop over generated moves
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {   
+        // preserve board state
+        copy_board();
+        
+        // make move
+        if (!make_move(move_list->moves[move_count], all_moves))
+            // skip to the next move
+            continue;
+        
+        // cummulative nodes
+        long cummulative_nodes = nodes;
+        
+        // call perft driver recursively
+        perft_driver(depth - 1);
+        
+        // old nodes
+        long old_nodes = nodes - cummulative_nodes;
+        
+        // take back
+        take_back();
+        
+        // print move
+        printf("     move: %s%s%c  nodes: %ld\n", square_to_coordinates[get_move_source(move_list->moves[move_count])],
+                                                 square_to_coordinates[get_move_target(move_list->moves[move_count])],
+                                                 get_move_promoted(move_list->moves[move_count]) ? promoted_pieces[get_move_promoted(move_list->moves[move_count])] : ' ',
+                                                 old_nodes);
+    }
+    
+    // print results
+    printf("\n    Depth: %d\n", depth);
+    printf("    Nodes: %ld\n", nodes);
+    printf("     Time: %ld\n\n", get_time_ms() - start);
+}
+
+/*************************************************\
+===================================================
                 Init All
 ===================================================
 \*************************************************/
@@ -2387,25 +2452,11 @@ void init_all() {
     // init_magic_numbers();
 }
 
-
 /*************************************************\
 ===================================================
                 Main Driver
 ===================================================
 \*************************************************/
-
-// get time in miliseconds
-int get_time_ms() {
-
-    #ifdef WIN64
-        return GetTickCount();
-    #else
-        struct timeval time_value;
-        gettimeofday(&time_value, NULL);
-        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-    #endif
-}
-
 
 int main() {
 
@@ -2413,39 +2464,20 @@ int main() {
     // Init all
     init_all();
 
-    parse_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 ");
+    // parse fen
+    parse_fen(tricky_position);
     print_board();
-    
-    moves move_list[1];
-
-    generate_moves(move_list);
 
     // start tracking time
     int start = get_time_ms();
 
-    // loop over generated moves
-    for (int move_count = 0; move_count < move_list->count; move_count++)
-    {
-        // init move
-        int move = move_list->moves[move_count];
-
-        // preserve board state
-        copy_board();
-
-        // make move
-        make_move(move, all_moves);
-        print_board();
-        getchar();
-
-        // take back
-        take_back();
-        print_board();
-        getchar();
-    }
-    
-    // time taken to execute program
-    printf("Time taken to execute: %d ms\n", get_time_ms() - start);
+    // perft
+    perft_test(5);
     getchar();
+        
+    // time taken to execute program
+    // printf("time taken to execute: %d ms\n", get_time_ms() - start);
+    // printf("nodes: %ld\n", nodes);
 
     return 0;
 
